@@ -7,6 +7,7 @@
 //
 
 #import "YAMAViewController.h"
+#import "yama.h"
 
 @interface YAMAViewController ()
 
@@ -18,6 +19,9 @@
 {
     [super viewDidLoad];
 	// Do any additional setup after loading the view, typically from a nib.
+    
+    yama_start_logging();
+    yama_stop_logging();
 }
 
 - (void)didReceiveMemoryWarning
