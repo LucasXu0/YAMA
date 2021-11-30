@@ -15,6 +15,9 @@ extern "C" {
 #endif
 #include <mach/mach_init.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <dlfcn.h>
+#include <string.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -42,9 +45,8 @@ const char *readable_type_flags(uint32_t type_flags)
     }
 }
 
-static yama_logging_context_t logging_context = { 0, false };
+static yama_logging_context_t logging_context = { 0, false, true };
 static struct backtrace_uniquing_table *table;
-static std::un
 
 int yama_initialize(void)
 {
@@ -59,10 +61,26 @@ void enumerator(mach_stack_logging_record_t record, void *context)
         return;
     }
     
-    if (logging_context.only_print_alive_only) {
+    if (logging_context.only_print_alive) {
         
     } else {
         printf("[%s] address = 0x%llx, size = %lld\n", readable_type_flags(record.type_flags), record.address, record.argument);
+        uint32_t out_frams_count = 512;
+        mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frams_count);
+        __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
+                                                       record.stack_identifier, out_frames_buffer,
+                                                       &out_frams_count,
+                                                       out_frams_count);
+        if (out_frams_count) {
+            for (int i = 0; i < out_frams_count; i++) {
+                mach_vm_address_t frame = out_frames_buffer[i];
+                Dl_info info;
+                dladdr((void *)frame, &info);
+                if (info.dli_sname && strcmp(info.dli_sname, "<redacted>") != 0) {
+                    printf("-> %s\n", info.dli_sname);
+                }
+            }
+        }
     }
 }
 

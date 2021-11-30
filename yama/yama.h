@@ -17,7 +17,8 @@ extern "C" {
  
 typedef struct yama_logging_context {
     uint64_t minimum_size;
-    bool only_print_alive_only;
+    bool only_print_alive;
+    bool print_stack_frames;
 } yama_logging_context_t;
 
 extern int yama_initialize(void);

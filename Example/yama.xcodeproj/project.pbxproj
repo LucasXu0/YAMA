@@ -249,6 +249,9 @@
 				LastUpgradeCheck = 0720;
 				ORGANIZATIONNAME = tsuiyuenhong;
 				TargetAttributes = {
+					6003F589195388D20070C39A = {
+						DevelopmentTeam = 446D3AAR7E;
+					};
 					6003F5AD195388D20070C39A = {
 						TestTargetID = 6003F589195388D20070C39A;
 					};
@@ -496,6 +499,7 @@
 			baseConfigurationReference = F44D68513C39B2505D281D1A /* Pods-yama_Example.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 446D3AAR7E;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "yama/yama-Prefix.pch";
 				INFOPLIST_FILE = "yama/yama-Info.plist";
@@ -513,6 +517,7 @@
 			baseConfigurationReference = 3FF517E319D373D4348F3171 /* Pods-yama_Example.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				DEVELOPMENT_TEAM = 446D3AAR7E;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "yama/yama-Prefix.pch";
 				INFOPLIST_FILE = "yama/yama-Info.plist";
