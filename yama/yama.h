@@ -8,17 +8,25 @@
 #ifndef yama_h
 #define yama_h
 
-#include "_types.h"
-#include "stdbool.h"
+#include <stdint.h>
+#include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+ 
 typedef struct yama_logging_context {
     uint64_t minimum_size;
     bool only_print_alive_only;
 } yama_logging_context_t;
 
-int yama_initialize(void);
-void yama_prepare_logging(yama_logging_context_t *context);
-int yama_start_logging(void);
-int yama_stop_logging(void);
+extern int yama_initialize(void);
+extern void yama_prepare_logging(yama_logging_context_t *context);
+extern int yama_start_logging(void);
+extern int yama_stop_logging(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* yama_h */

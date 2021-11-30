@@ -62,6 +62,7 @@
 		668F510CEA0D5F82F4F63552 /* Pods_yama_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_yama_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		710728855C4A7E72F03CDBD8 /* Pods_yama_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_yama_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		71719F9E1E33DC2100824A3D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		719B7EDA27566AC8005E6920 /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
 		873B8AEA1B1F5CCA007FD442 /* Main.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = Main.storyboard; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		AA240A7F0B4DDD8E807920CA /* Pods-yama_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-yama_Tests.debug.xcconfig"; path = "Target Support Files/Pods-yama_Tests/Pods-yama_Tests.debug.xcconfig"; sourceTree = "<group>"; };
 		E8A014363A1791266E4E2AAF /* yama.podspec */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; name = yama.podspec; path = ../yama.podspec; sourceTree = "<group>"; };
@@ -119,6 +120,7 @@
 		6003F58C195388D20070C39A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				719B7EDA27566AC8005E6920 /* libc++.tbd */,
 				6003F58D195388D20070C39A /* Foundation.framework */,
 				6003F58F195388D20070C39A /* CoreGraphics.framework */,
 				6003F591195388D20070C39A /* UIKit.framework */,

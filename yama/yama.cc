@@ -6,9 +6,15 @@
 //
 
 #include "yama.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include "stack_logging.h"
-#import <mach/mach_init.h>
-#import <stdio.h>
+#ifdef __cplusplus
+}
+#endif
+#include <mach/mach_init.h>
+#include <stdio.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -38,6 +44,7 @@ const char *readable_type_flags(uint32_t type_flags)
 
 static yama_logging_context_t logging_context = { 0, false };
 static struct backtrace_uniquing_table *table;
+static std::un
 
 int yama_initialize(void)
 {
