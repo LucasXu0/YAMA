@@ -77,10 +77,11 @@ void enumerator(mach_stack_logging_record_t record, void *context)
                 Dl_info info;
                 dladdr((void *)frame, &info);
                 if (info.dli_sname && strcmp(info.dli_sname, "<redacted>") != 0) {
-                    printf("-> %s\n", info.dli_sname);
+                    // printf("-> %s\n", info.dli_sname);
                 }
             }
         }
+        free(out_frames_buffer);
     }
 }
 
