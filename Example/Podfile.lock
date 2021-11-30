@@ -1,0 +1,16 @@
+PODS:
+  - yama (0.1.0)
+
+DEPENDENCIES:
+  - yama (from `../`)
+
+EXTERNAL SOURCES:
+  yama:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  yama: 3674350c808fb839f9216ee62a90e95a1dd5a17f
+
+PODFILE CHECKSUM: 43ac4268e7b1623cd35ad015e3a567827c031b81
+
+COCOAPODS: 1.11.2
