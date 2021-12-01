@@ -20,7 +20,8 @@
     [super viewDidLoad];
 	// Do any additional setup after loading the view, typically from a nib.
     
-    // [[NSFileManager defaultManager] removeItemAtPath:NSTemporaryDirectory() error:nil];
+    [[NSFileManager defaultManager] removeItemAtPath:NSTemporaryDirectory() error:nil];
+    [[NSFileManager defaultManager] createDirectoryAtPath:NSTemporaryDirectory() withIntermediateDirectories:YES attributes:nil error:nil];
     
     yama_logging_context_t *context = (yama_logging_context_t *)malloc(sizeof(yama_logging_context_t));
     context->output_logging_file_path = [NSTemporaryDirectory() stringByAppendingString:@"msl.log"].UTF8String;
@@ -35,9 +36,11 @@
     
     dump_headers();
     
-    yama_stop_logging();
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        yama_stop_logging();
+    });
     
-    
+    printf("😁 done\n");
 }
 
 @end

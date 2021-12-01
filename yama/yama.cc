@@ -124,6 +124,7 @@ int yama_stop_logging(void)
 static int header_count = 0;
 void add_image_callback(const struct mach_header *header, intptr_t slide)
 {
+    if (!header_file) return;
     Dl_info header_info;
     dladdr(header, &header_info);
     // printf("[%03d] 0x%016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
