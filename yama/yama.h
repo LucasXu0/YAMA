@@ -16,10 +16,12 @@ extern "C" {
 #endif
  
 typedef struct yama_logging_context {
-    uint64_t minimum_size;
-    bool only_print_alive;
-    bool print_stack_frames;
+    const char *output_logging_file_path;
+    const char *output_serialize_table_file_path;
+    const char *output_headers_file_path;
 } yama_logging_context_t;
+
+extern void dump_headers(void);
 
 extern int yama_initialize(void);
 extern void yama_prepare_logging(yama_logging_context_t *context);
