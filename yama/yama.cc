@@ -49,34 +49,6 @@ const char *readable_type_flags(uint32_t type_flags)
 
 static yama_logging_context_t logging_context = { 0, true, true };
 static struct backtrace_uniquing_table *table;
-static std::unordered_map<mach_vm_address_t, mach_stack_logging_record_t> stack_map = {} ;
-
-void dump_live_allocations(void)
-{
-    for (auto& v : stack_map) {
-        mach_vm_address_t address = v.first;
-        mach_stack_logging_record_t record = v.second;
-        // printf("[%s] address = 0x%llx, size = %lld\n", readable_type_flags(record.type_flags), record.address, record.argument);
-        uint32_t out_frams_count = 512;
-        mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frams_count);
-        __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)table,
-                                                       record.stack_identifier, out_frames_buffer,
-                                                       &out_frams_count,
-                                                       out_frams_count);
-        if (out_frams_count) {
-            for (int i = 0; i < out_frams_count; i++) {
-                // continue;
-                mach_vm_address_t frame = out_frames_buffer[i];
-                Dl_info info;
-                dladdr((void *)frame, &info);
-                if (info.dli_sname != NULL && strlen(info.dli_sname) && strcmp(info.dli_sname, "<redacted>") != 0) {
-                    printf("-> %s\n", info.dli_sname);
-                }
-            }
-        }
-        free(out_frames_buffer);
-    }
-}
 
 int yama_initialize(void)
 {
@@ -91,38 +63,25 @@ void enumerator(mach_stack_logging_record_t record, void *context)
         return;
     }
     
-    if (logging_context.only_print_alive) {
-        if (stack_map.find(record.address) != stack_map.end()) {
-            stack_map.erase(record.address);
-        } else {
-            stack_map.emplace(record.address, record);
+    printf("[%s] address = 0x%llx, size = %lld\n", readable_type_flags(record.type_flags), record.address, record.argument);
+    uint32_t out_frams_count = 512;
+    mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frams_count);
+    __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
+                                                   record.stack_identifier, out_frames_buffer,
+                                                   &out_frams_count,
+                                                   out_frams_count);
+    if (out_frams_count) {
+        for (int i = 0; i < out_frams_count; i++) {
+            mach_vm_address_t frame = out_frames_buffer[i];
+            printf("-> 0x%llx\n", frame);
         }
-    } else {
-        printf("[%s] address = 0x%llx, size = %lld\n", readable_type_flags(record.type_flags), record.address, record.argument);
-        uint32_t out_frams_count = 512;
-        mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frams_count);
-        __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
-                                                       record.stack_identifier, out_frames_buffer,
-                                                       &out_frams_count,
-                                                       out_frams_count);
-        if (out_frams_count) {
-            for (int i = 0; i < out_frams_count; i++) {
-                mach_vm_address_t frame = out_frames_buffer[i];
-                Dl_info info;
-                dladdr((void *)frame, &info);
-                if (info.dli_sname != NULL && strlen(info.dli_sname) && strcmp(info.dli_sname, "<redacted>") != 0) {
-                    printf("-> %s\n", info.dli_sname);
-                }
-            }
-        }
-        free(out_frames_buffer);
     }
+    free(out_frames_buffer);
 }
 
 extern uint64_t __mach_stack_logging_shared_memory_address;
 int yama_start_logging(void)
 {
-    // task_suspend(current_task());
     task_t task = current_task();
     boolean_t lite_mode;
     kern_return_t ret = KERN_SUCCESS;
@@ -132,11 +91,6 @@ int yama_start_logging(void)
     if (!table) return 0;
     ret = __mach_stack_logging_enumerate_records(task, 0, enumerator, (void *)table);
     checkRet(ret);
-    if (logging_context.only_print_alive) {
-        dump_live_allocations();
-        stack_map.clear();
-    }
-    // task_resume(current_task());
     return 1;
 }
 
