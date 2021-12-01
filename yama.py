@@ -3,6 +3,7 @@
 
 import sys
 import os
+import bisect
 
 print '参数个数为:', len(sys.argv), '个参数。'
 print '参数列表:', str(sys.argv)
@@ -13,7 +14,7 @@ bad_case = 0
 # 1. 查找符号表位置
 def find_debug_symbols_location(headers):
     global bad_case
-    symbols_path = []
+    symbols = []
     for header in open(headers):
         header = header.strip('\n').split(' ')
         count, address, path = header[0], header[1], header[2]
@@ -25,10 +26,19 @@ def find_debug_symbols_location(headers):
         if not ret:
             bad_case += 1
         else:
-            symbols_path.append(symbol_path)
-    return symbols_path
+            symbols.append((address, symbol_path))
+    symbols.sort()
+    return symbols
 
 
-symbols_path = find_debug_symbols_location(headers)
+symbols = find_debug_symbols_location(headers)
 print('无法查找文件个数 = ' + str(bad_case))
-print(symbols_path)
+for symbol in symbols:
+    print(symbol)
+
+def find_address_in_which_symbol(symbols, address):
+    return bisect.bisect(symbols, address)
+
+
+# 2. 还原符号
+print(find_address_in_which_symbol(symbols, 0x00000001f782a000))
