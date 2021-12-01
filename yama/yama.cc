@@ -65,12 +65,12 @@ void dump_live_allocations(void)
                                                        out_frams_count);
         if (out_frams_count) {
             for (int i = 0; i < out_frams_count; i++) {
-                continue;
+                // continue;
                 mach_vm_address_t frame = out_frames_buffer[i];
                 Dl_info info;
                 dladdr((void *)frame, &info);
-                if (info.dli_sname && strcmp(info.dli_sname, "<redacted>") != 0) {
-                    // printf("-> %s\n", info.dli_sname);
+                if (info.dli_sname != NULL && strlen(info.dli_sname) && strcmp(info.dli_sname, "<redacted>") != 0) {
+                    printf("-> %s\n", info.dli_sname);
                 }
             }
         }
@@ -110,8 +110,8 @@ void enumerator(mach_stack_logging_record_t record, void *context)
                 mach_vm_address_t frame = out_frames_buffer[i];
                 Dl_info info;
                 dladdr((void *)frame, &info);
-                if (info.dli_sname && strcmp(info.dli_sname, "<redacted>") != 0) {
-                    // printf("-> %s\n", info.dli_sname);
+                if (info.dli_sname != NULL && strlen(info.dli_sname) && strcmp(info.dli_sname, "<redacted>") != 0) {
+                    printf("-> %s\n", info.dli_sname);
                 }
             }
         }
