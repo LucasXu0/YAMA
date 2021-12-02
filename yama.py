@@ -76,6 +76,8 @@ def filter_live_records(records):
 
 def dump_live_objcect(mach_headers, stacks, records, minimum_size, maximum_level):
     for record in records:
+        print(record.address)
+        continue
         if record.size < minimum_size:
             continue
         print("address({}), size = {}".format(record.address, record.size))
@@ -90,7 +92,7 @@ def dump_live_objcect(mach_headers, stacks, records, minimum_size, maximum_level
 mach_headers = get_mach_headers()
 stacks = get_stacks()
 records = get_records()
-filter_records = filter_live_records(records)
-print(len(filter_records))
+# filter_records = filter_live_records(records)
+print(len(records))
 
-dump_live_objcect(mach_headers, stacks, filter_records, 102400 - 1, 5)
+dump_live_objcect(mach_headers, stacks, records, 79 - 1, 5)

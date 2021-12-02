@@ -25,7 +25,7 @@ extern "C" {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-#define ENABLE_DEBUG_LOG 0
+#define ENABLE_DEBUG_LOG 1
 
 #define checkRet(ret) if (ret != KERN_SUCCESS) return ret
 
@@ -79,7 +79,7 @@ static inline const char *path_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
     strcat(file_path, file_prefix);
     strcat(file_path, file_type);
 #if ENABLE_DEBUG_LOG
-    printf("[YAMA_FILE] type(%d) => %s\n", type, file_path);
+    printf("[YAMA] file type(%d) => %s\n", type, file_path);
 #endif
     return file_path;
 }
@@ -139,7 +139,7 @@ void enumerator(mach_stack_logging_record_t record, void *context)
     if (!context) return;
         
 #if ENABLE_DEBUG_LOG
-    printf("%08x %016llx %016llx %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
+    printf("[YAMA] %08x %016llx %016llx %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
@@ -157,13 +157,13 @@ void enumerator(mach_stack_logging_record_t record, void *context)
             if (!frame) continue;
             yama_fprintf(YAMA_FILE_TYPE_STACKS, " %016llx", frame);
 #if ENABLE_DEBUG_LOG
-            printf("-> %llx\n", frame);
+            printf("[YAMA] -> %llx\n", frame);
 #endif
         }
         yama_fprintf(YAMA_FILE_TYPE_STACKS, "\n");
     } else {
 #if ENABLE_DEBUG_LOG
-        printf("what? could not find the frames for %lld\n", record.stack_identifier);
+        printf("[YAMA] what? could not find the frames for %lld\n", record.stack_identifier);
 #endif
     }
     free(out_frames_buffer);
@@ -176,12 +176,12 @@ void add_image_callback(const struct mach_header *header, intptr_t slide)
     dladdr(header, &header_info);
     if (header_info.dli_fname && strlen(header_info.dli_fname) > 0) {
 #if ENABLE_DEBUG_LOG
-        printf("[%03d] %016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
+        printf("[YAMA] [%03d] %016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
 #endif
         yama_fprintf(YAMA_FILE_TYPE_MACH_HEADERS, "%016lx %s\n", header_info.dli_fbase, header_info.dli_fname);
     } else {
 #if ENABLE_DEBUG_LOG
-        printf("what? could not find the name for address(%p)\n", (void *)header);
+        printf("[YAMA] what? could not find the name for address(%p)\n", (void *)header);
 #endif
     }
 }

@@ -13,6 +13,7 @@
 int main(int argc, char * argv[])
 {
     yama_initialize();
+    
     @autoreleasepool {
         return UIApplicationMain(argc, argv, nil, NSStringFromClass([YAMAAppDelegate class]));
     }
