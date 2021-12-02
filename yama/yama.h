@@ -14,19 +14,19 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
- 
+
+#define YAMA_SUCCESS                    0
+#define YAMA_LOGGING_CONTEXT_IS_NULL    10001
+#define YAMA_INIT_TABLE_ERROR           10002
+
 typedef struct yama_logging_context {
-    const char *output_logging_file_path;
-    const char *output_serialize_table_file_path;
-    const char *output_headers_file_path;
+    char *output_dir;
 } yama_logging_context_t;
 
-extern void dump_headers(void);
-
 extern int yama_initialize(void);
-extern void yama_prepare_logging(yama_logging_context_t *context);
+extern int yama_prepare_logging(yama_logging_context_t *context);
 extern int yama_start_logging(void);
-extern int yama_stop_logging(void);
+extern void yama_stop_logging(void);
 
 #ifdef __cplusplus
 }

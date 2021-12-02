@@ -25,7 +25,23 @@ extern "C" {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-#define checkRet(ret) if (ret != KERN_SUCCESS) return 0
+#define ENABLE_DEBUG_LOG 1
+
+#define checkRet(ret) if (ret != KERN_SUCCESS) return ret
+
+typedef enum : int {
+    YAMA_FILE_TYPE_MACH_HEADERS,
+    YAMA_FILE_TYPE_RECORDS,
+    YAMA_FILE_TYPE_STACKS,
+    YAMA_FILE_TYPE_SERIALIZE_TABLE,
+    // ...
+    YAMA_FILE_TYPE_ALL,
+} YAMA_FILE_TYPE;
+
+#pragma mark - Private
+static yama_logging_context_t *logging_context = {};
+static FILE **yama_files;
+static struct backtrace_uniquing_table *table;
 
 const char *readable_type_flags(uint32_t type_flags)
 {
@@ -48,42 +64,122 @@ const char *readable_type_flags(uint32_t type_flags)
     }
 }
 
-static yama_logging_context_t logging_context = {};
-static struct backtrace_uniquing_table *table;
+static inline const char *string_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
+{
+    static char const *strings[] = {"MACH_HEADER", "RECORDS", "STACKS", "SERIALIZE_TABLE"};
+    return strings[type];
+}
 
-static FILE *logging_file;
-static FILE *serialize_table_file;
-static FILE *header_file;
+static inline const char *path_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
+{
+    const char *file_name = strcat((char *)"/YAMA_FILE_", string_from_YAMA_FILE_TYPE(type));
+    const char *file_path = strcat(logging_context->output_dir, file_name);
+    return file_path;
+}
+
+int initialize_yama_files(void)
+{
+    if (!logging_context) return YAMA_LOGGING_CONTEXT_IS_NULL;
+    
+    yama_files = (FILE **)malloc(sizeof(FILE *) * YAMA_FILE_TYPE_ALL);
+    for (int i = 0; i < YAMA_FILE_TYPE_ALL; i++) {
+        const char *file_path = path_from_YAMA_FILE_TYPE((YAMA_FILE_TYPE)i);
+        yama_files[i] = fopen(file_path, "w+");
+    }
+    
+    return YAMA_SUCCESS;
+}
+
+void uninitialize_yama_filse(void)
+{
+    for (int i = 0; i < YAMA_FILE_TYPE_ALL; i++) {
+        if (yama_files[i]) {
+            fclose(yama_files[i]);
+            yama_files[i] = NULL;
+        }
+    }
+}
+
+void inline yama_write(YAMA_FILE_TYPE type, const void * __restrict __ptr, size_t __size, size_t __nitems)
+{
+    if (yama_files[type]) {
+        fwrite(__ptr, __size, __nitems, yama_files[type]);
+    }
+}
+
+void serialize_table(void)
+{
+    if (!table) return;
+    mach_vm_size_t table_size = 0;
+    void *serialize_table = __mach_stack_logging_uniquing_table_serialize(table, &table_size);
+    if (table_size) {
+        yama_write(YAMA_FILE_TYPE_SERIALIZE_TABLE, serialize_table, sizeof(char), table_size);
+    }
+}
+
+void enumerator(mach_stack_logging_record_t record, void *context)
+{
+    if (!context) return;
+        
+#if ENABLE_DEBUG_LOG
+    printf("%08x%016llx%016llx%016llx\n", record.type_flags, record.address, record.argument, record.stack_identifier);
+#endif
+    
+    uint32_t out_frames_count = 512;
+    mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
+    __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
+                                                   record.stack_identifier,
+                                                   out_frames_buffer,
+                                                   &out_frames_count,
+                                                   out_frames_count);
+    if (out_frames_count) {
+        for (int i = 0; i < out_frames_count; i++) {
+            mach_vm_address_t frame = out_frames_buffer[i];
+#if ENABLE_DEBUG_LOG
+            printf("-> %lld\n", frame);
+#endif
+        }
+    } else {
+#if ENABLE_DEBUG_LOG
+        printf("what? could not find the frames for %lld\n", record.stack_identifier);
+#endif
+    }
+    free(out_frames_buffer);
+}
+
+static int header_count = 0;
+void add_image_callback(const struct mach_header *header, intptr_t slide)
+{
+    Dl_info header_info;
+    dladdr(header, &header_info);
+    if (header_info.dli_fname && strlen(header_info.dli_fname) > 0) {
+#if ENABLE_DEBUG_LOG
+        printf("[%03d] 0x%016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
+#endif
+    } else {
+#if ENABLE_DEBUG_LOG
+        printf("what? could not find the name for address(%p)\n", (void *)header);
+#endif
+    }
+}
+
+void dump_mach_headers(void)
+{
+    _dyld_register_func_for_add_image(add_image_callback);
+}
+
+#pragma mark - Public
 
 int yama_initialize(void)
 {
     return turn_on_stack_logging(stack_logging_mode_all);
 }
 
-extern void yama_prepare_logging(yama_logging_context_t *context)
+int yama_prepare_logging(yama_logging_context_t *context)
 {
-    logging_context = *context;
-    logging_file = fopen(context->output_logging_file_path, "w+");
-    serialize_table_file = fopen(context->output_serialize_table_file_path, "w+");
-    header_file = fopen(context->output_headers_file_path, "w+");
-}
-
-void enumerator(mach_stack_logging_record_t record, void *context)
-{
-    fprintf(logging_file, "[%s] 0x%llx, %lld, %llx\n", readable_type_flags(record.type_flags), record.address, record.argument, record.stack_identifier);
-    uint32_t out_frams_count = 512;
-    mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frams_count);
-    __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
-                                                   record.stack_identifier, out_frames_buffer,
-                                                   &out_frams_count,
-                                                   out_frams_count);
-    if (out_frams_count) {
-        for (int i = 0; i < out_frams_count; i++) {
-            mach_vm_address_t frame = out_frames_buffer[i];
-            // fprintf(logging_file, "-> 0x%llx\n", frame);
-        }
-    }
-    free(out_frames_buffer);
+    logging_context = context;
+    int ret = initialize_yama_files();
+    return ret;
 }
 
 extern uint64_t __mach_stack_logging_shared_memory_address;
@@ -95,45 +191,21 @@ int yama_start_logging(void)
     ret = __mach_stack_logging_start_reading(task, __mach_stack_logging_shared_memory_address, &lite_mode);
     checkRet(ret);
     table = __mach_stack_logging_copy_uniquing_table(task);
-    if (!table) return 0;
+    if (!table) return YAMA_INIT_TABLE_ERROR;
     ret = __mach_stack_logging_enumerate_records(task, 0, enumerator, (void *)table);
     checkRet(ret);
-    mach_vm_size_t table_size = 0;
-    void *serialize_table = __mach_stack_logging_uniquing_table_serialize(table, &table_size);
-    if (table_size) {
-        fwrite(serialize_table, sizeof(char), table_size, serialize_table_file);
-    }
-    return 1;
+    dump_mach_headers();
+    return ret;
 }
 
-int yama_stop_logging(void)
+void yama_stop_logging(void)
 {
-    if (!table) return 0;
     __mach_stack_logging_stop_reading(current_task());
-    __mach_stack_logging_uniquing_table_release(table);
-    table = NULL;
-    fclose(logging_file);
-    logging_file = NULL;
-    fclose(header_file);
-    header_file = NULL;
-    fclose(serialize_table_file);
-    serialize_table_file = NULL;
-    return 1;
-}
-
-static int header_count = 0;
-void add_image_callback(const struct mach_header *header, intptr_t slide)
-{
-    if (!header_file) return;
-    Dl_info header_info;
-    dladdr(header, &header_info);
-    // printf("[%03d] 0x%016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
-    fprintf(header_file, "[%03d] 0x%016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
-}
-
-void dump_headers(void)
-{
-    _dyld_register_func_for_add_image(add_image_callback);
+    if (table) {
+        __mach_stack_logging_uniquing_table_release(table);
+        table = NULL;
+    }
+    uninitialize_yama_filse();
 }
 
 #pragma GCC diagnostic pop
