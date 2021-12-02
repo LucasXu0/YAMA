@@ -5,84 +5,87 @@ import sys
 import os
 import bisect
 import subprocess
-from threading import Thread
-from time import sleep
+from colorama import Fore, Back, Style
 
-print('argument count = ' + str(len(sys.argv)))
+# input_dir
+INTPUT_DIR = sys.argv[1]
+IOS_DEVICESUPPORT_PATH = sys.argv[2]
 
-headers = sys.argv[1]
-stack_id_maps_path = sys.argv[2]
+YAMA_FILE_MACH_HEADER   = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
+YAMA_FILE_RECORDS       = INTPUT_DIR + '/YAMA_FILE_RECORDS'
+YAMA_FILE_STACKS        = INTPUT_DIR + '/YAMA_FILE_STACKS'
 
-bad_case = 0
-# 1. 查找符号表位置
-def find_debug_symbols_location(headers):
-    global bad_case
-    symbols = []
-    for header in open(headers):
-        header = header.strip('\n').split(' ')
-        count, address, path = header[0], header[1], header[2]
-        # FIXME: hard code
-        symbol_path = '/Users/runkang.xu/Library/Developer/Xcode/iOS DeviceSupport/14.3 (18C66)/Symbols' + path
-        # print(count, address, symbol_path)
-        ret = os.path.exists(symbol_path)
-        # print(ret)
-        if not ret:
-            bad_case += 1
+class Record:
+    def __init__(self, type_flag, stack_id, size, address):
+        self.type_flag = type_flag
+        self.stack_id = stack_id
+        self.size = size
+        self.address = address
+
+# convert mach_headers path to local path
+def get_mach_headers():
+    bad_case = 0
+    mach_headers = []
+    for header in open(YAMA_FILE_MACH_HEADER):
+        header = header.strip('\n').split(' ') # ('0000000102644000', /Developer/usr/lib/libBacktraceRecording.dylib)
+        slide, path = header[0], header[1]
+        symbol_path = IOS_DEVICESUPPORT_PATH + path
+        if os.path.exists(symbol_path):
+            mach_headers.append((slide, symbol_path))
         else:
-            symbols.append((address, symbol_path))
-    symbols.sort()
-    return symbols
+            bad_case += 1
+            print(symbol_path)
+            print(Fore.CYAN + 'could not find library(' + path + ') in your local path')
+    print(Style.RESET_ALL)
+    print('bad case in [convert_mach_header_to_local_symbols] = ' + str(bad_case))
+    mach_headers.sort()
+    return mach_headers
 
+def resolve_symbol(mach_headers, address):
+    def str_to_hex(str):
+        return hex(int(str, 16))
 
-symbols = find_debug_symbols_location(headers)
-print('无法查找文件个数 = ' + str(bad_case))
-for i in range(len(symbols)):
-    print(i, symbols[i])
-
-def find_address_in_which_symbol(symbols, address):
-    return bisect.bisect_left(symbols, (address, 'A'))
-
-def aasync(f):
-    def wrapper(*args, **kwargs):
-        thr = Thread(target=f, args=args, kwargs=kwargs)
-        thr.start()
-    return wrapper
-
-@aasync
-def convert_address_to_symbol(symbols, address):
-    symbol_index = find_address_in_which_symbol(symbols, address)
-    symbol = symbols[symbol_index - 1]
-    command = 'atos -arch arm64 -o "' + symbol[1] + '" -l ' + symbol[0] + ' ' + address
-    # ret = os.system(command)
+    position = bisect.bisect_left(mach_headers, (address, 'AAAAA'))
+    (slide, symbol_path) = mach_headers[position - 1]
+    command = 'atos' + ' -arch' + ' arm64' + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
+    # print(command)
     subprocess.call(command, shell=True)
-    # print(command + ' && ')
-    # return ret
 
-def convert_stack_id_map(stack_id_maps_path):
-    stack_id_map = {}
-    for line in open(stack_id_maps_path):
-        line = line.strip('\n').split(' ')
-        stack_id_map[line[0]] = line[1:]
-    return stack_id_map
+def get_stacks():
+    stacks = {}
+    for stack in open(YAMA_FILE_STACKS):
+        stack = stack.strip('\n').split(' ')
+        stacks[stack[0]] = stack[1:]
+    return stacks
 
-def convert_stack_id_map_to_symbol(stack_id_map, symbols):
-    for key in stack_id_map:
-        print(key)
-        for line in stack_id_map[key]:
-            # print(line)
-            if len(line) and line != '0x0000000000000000':
-                convert_address_to_symbol(symbols, line)
-            else:
-                print(line)
-        print('==============================')
+def get_records():
+    records = []
+    for raw_record in open(YAMA_FILE_RECORDS):
+        raw_record = raw_record.strip('\n').split(' ') # 00000020 07d00400000e7971 0000000000004000 000000010562c000
+        records.append(Record(type_flag=raw_record[0], stack_id=raw_record[1], size=int(raw_record[2]), address=raw_record[3]))
+    return records
 
+def filter_live_records(records):
+    filter_records = {}
+    for record in records:
+        if record.address in filter_records:
+            filter_records.pop(record.address)
+        elif record.type_flag == '00000002':
+            filter_records[record.address] = record
+    return filter_records.values()
 
-# 2. 还原符号
-# print(find_address_in_which_symbol(symbols, '0x00000001abb7c350'))
+def dump_live_objcect(mach_headers, stacks, records):
+    for record in records:
+        print("address({}), size = {}".format(record.address, record.size))
+        stack = stacks[record.stack_id]
+        for frame in stack:
+            resolve_symbol(mach_headers, frame)
 
-# convert_address_to_symbol(symbols, '0x00000001abb7c350')
-stack_id_map = convert_stack_id_map(stack_id_maps_path)
-# print(stack_id_map)
-convert_stack_id_map_to_symbol(stack_id_map, symbols)
+mach_headers = get_mach_headers()
+stacks = get_stacks()
+records = get_records()
+filter_records = filter_live_records(records)
+print(len(filter_records))
+dump_live_objcect(mach_headers, stacks, filter_records)
 
-exit()
+resolve_symbol(mach_headers, '00000001b0b6040c')
