@@ -20,6 +20,9 @@
     [super viewDidLoad];
 	// Do any additional setup after loading the view, typically from a nib.
     
+    void *pointer = (void *)malloc(sizeof(int) * 102400);
+    printf("pointer = %p\n", pointer);
+    
     [[NSFileManager defaultManager] removeItemAtPath:NSTemporaryDirectory() error:nil];
     [[NSFileManager defaultManager] createDirectoryAtPath:NSTemporaryDirectory() withIntermediateDirectories:YES attributes:nil error:nil];
     
