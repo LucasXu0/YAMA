@@ -139,9 +139,9 @@ void enumerator(mach_stack_logging_record_t record, void *context)
     if (!context) return;
         
 #if ENABLE_DEBUG_LOG
-    printf("%08x%016llx%016llx%016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
+    printf("%08x %016llx %016llx %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
 #endif
-    yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08x%016llx%016llx%016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
+    yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08x %016llx %016llx %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
     uint32_t out_frames_count = 512;
     mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
