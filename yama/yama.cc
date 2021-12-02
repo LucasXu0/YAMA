@@ -107,10 +107,20 @@ void uninitialize_yama_filse(void)
     }
 }
 
-void inline yama_write(YAMA_FILE_TYPE type, const void * __restrict __ptr, size_t __size, size_t __nitems)
+void inline yama_fwrite(YAMA_FILE_TYPE type, const void * __restrict __ptr, size_t __size, size_t __nitems)
 {
     if (yama_files[type]) {
         fwrite(__ptr, __size, __nitems, yama_files[type]);
+    }
+}
+
+void inline yama_fprintf(YAMA_FILE_TYPE type, const char *format, ...)
+{
+    if (yama_files[type]) {
+        va_list args;
+        va_start(args, format);
+        vfprintf(yama_files[type], format, args);
+        va_end(args);
     }
 }
 
@@ -120,7 +130,7 @@ void serialize_table(void)
     mach_vm_size_t table_size = 0;
     void *serialize_table = __mach_stack_logging_uniquing_table_serialize(table, &table_size);
     if (table_size) {
-        yama_write(YAMA_FILE_TYPE_SERIALIZE_TABLE, serialize_table, sizeof(char), table_size);
+        yama_fwrite(YAMA_FILE_TYPE_SERIALIZE_TABLE, serialize_table, sizeof(char), table_size);
     }
 }
 
@@ -129,8 +139,9 @@ void enumerator(mach_stack_logging_record_t record, void *context)
     if (!context) return;
         
 #if ENABLE_DEBUG_LOG
-    printf("%08x%016llx%016llx%016llx\n", record.type_flags, record.address, record.argument, record.stack_identifier);
+    printf("%08x%016llx%016llx%016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
 #endif
+    yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08x%016llx%016llx%016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
     uint32_t out_frames_count = 512;
     mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
@@ -140,12 +151,16 @@ void enumerator(mach_stack_logging_record_t record, void *context)
                                                    &out_frames_count,
                                                    out_frames_count);
     if (out_frames_count) {
+        yama_fprintf(YAMA_FILE_TYPE_STACKS, "%016llx", record.stack_identifier);
         for (int i = 0; i < out_frames_count; i++) {
             mach_vm_address_t frame = out_frames_buffer[i];
+            if (!frame) continue;
+            yama_fprintf(YAMA_FILE_TYPE_STACKS, " %016llx", frame);
 #if ENABLE_DEBUG_LOG
-            printf("-> %lld\n", frame);
+            printf("-> %llx\n", frame);
 #endif
         }
+        yama_fprintf(YAMA_FILE_TYPE_STACKS, "\n");
     } else {
 #if ENABLE_DEBUG_LOG
         printf("what? could not find the frames for %lld\n", record.stack_identifier);
@@ -161,8 +176,9 @@ void add_image_callback(const struct mach_header *header, intptr_t slide)
     dladdr(header, &header_info);
     if (header_info.dli_fname && strlen(header_info.dli_fname) > 0) {
 #if ENABLE_DEBUG_LOG
-        printf("[%03d] 0x%016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
+        printf("[%03d] %016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
 #endif
+        yama_fprintf(YAMA_FILE_TYPE_MACH_HEADERS, "%016lx %s\n", header_info.dli_fbase, header_info.dli_fname);
     } else {
 #if ENABLE_DEBUG_LOG
         printf("what? could not find the name for address(%p)\n", (void *)header);
