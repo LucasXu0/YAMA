@@ -72,8 +72,15 @@ static inline const char *string_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
 
 static inline const char *path_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
 {
-    const char *file_name = strcat((char *)"/YAMA_FILE_", string_from_YAMA_FILE_TYPE(type));
-    const char *file_path = strcat(logging_context->output_dir, file_name);
+    const char *file_prefix = "YAMA_FILE_";
+    const char *file_type = string_from_YAMA_FILE_TYPE(type);
+    char *file_path = (char *)malloc(sizeof(char) * (strlen(file_prefix) + strlen(file_type) + strlen(logging_context->output_dir)));
+    strcpy(file_path, logging_context->output_dir);
+    strcat(file_path, file_prefix);
+    strcat(file_path, file_type);
+#if ENABLE_DEBUG_LOG
+    printf("[YAMA_FILE] type(%d) => %s\n", type, file_path);
+#endif
     return file_path;
 }
 
