@@ -5,17 +5,28 @@ import sys
 import os
 import bisect
 import subprocess
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
+import math
 
 # input_dir
 ARCH = sys.argv[1]
 IOS_DEVICESUPPORT_PATH = sys.argv[2]
 APP_DSYM_PATH = sys.argv[3]
 INTPUT_DIR = sys.argv[4]
+MODE = sys.argv[5]
 
 YAMA_FILE_MACH_HEADER   = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
 YAMA_FILE_RECORDS       = INTPUT_DIR + '/YAMA_FILE_RECORDS'
 YAMA_FILE_STACKS        = INTPUT_DIR + '/YAMA_FILE_STACKS'
+
+def convert_size(size_bytes):
+   if size_bytes == 0:
+       return "0B"
+   size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+   i = int(math.floor(math.log(size_bytes, 1024)))
+   p = math.pow(1024, i)
+   s = round(size_bytes / p, 2)
+   return "%s%s" % (s, size_name[i])
 
 class Record:
     def __init__(self, type_flag, stack_id, size, address):
@@ -38,11 +49,9 @@ def get_mach_headers():
         else:
             mach_headers.append((slide, '/'))
             bad_case += 1
-            print(symbol_path)
-            print(Fore.CYAN + 'could not find library(' + path + ') in your local path')
+            print(Fore.CYAN + 'could not find library(' + path + ') in your local path' + Style.RESET_ALL)
         minimum_slide = min(minimum_slide, slide)
-    print(Style.RESET_ALL)
-    print('bad case in [convert_mach_header_to_local_symbols] = ' + str(bad_case))
+    # print('bad case in [convert_mach_header_to_local_symbols] = ' + str(bad_case))
     mach_headers.sort()
     mach_headers.pop(0)
     mach_headers.insert(0, (minimum_slide, APP_DSYM_PATH))
@@ -57,11 +66,11 @@ def resolve_symbol(mach_headers, address, only_in_main_executable=True):
         return hex(int(str, 16))
 
     position = bisect.bisect_left(mach_headers, (address, 'AAAAA'))
-
     if only_in_main_executable and position > 1:
         return ''
-
     (slide, symbol_path) = mach_headers[position - 1]
+    if not os.path.exists(symbol_path) or symbol_path == '/':
+        return address
     command = 'atos' + ' -arch ' + ARCH + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
     # print(command)
     return subprocess.check_output(command, shell=True).decode("utf-8").strip('\n')
@@ -84,19 +93,18 @@ def dump_records_total_size(records):
     total_size = 0
     for record in records:
         total_size += record.size
-    print(Fore.BLUE + 'total size = {}MB'.format(total_size / 1024.0 / 1024.0))
-    print(Style.RESET_ALL)
+    print(Fore.YELLOW + '\n[YAMA] Total Size = {}'.format(convert_size(total_size)) + Style.RESET_ALL)
 
 def dump_records(mach_headers, stacks, records, maximum_level=512):
     for record in records:
-        print("address({}), size = {:.2f}MB".format(record.address, record.size / 1024.0 / 1024.0))
+        print("address({}), size = {}".format(record.address, convert_size(record.size)))
         _maximum_level = maximum_level
         if record.stack_id not in stacks:
             continue
         for frame in stacks[record.stack_id]:
             if not _maximum_level:
                 break
-            ret = resolve_symbol(mach_headers, frame, only_in_main_executable=False)
+            ret = resolve_symbol(mach_headers, frame, only_in_main_executable=(MODE == 'lite'))
             if len(ret):
                 print('-> {}'.format(ret))
             _maximum_level -= 1
@@ -120,7 +128,7 @@ mach_headers = get_mach_headers()
 stacks = get_stacks()
 records = get_records()
 
-dump_headers(mach_headers)
+# dump_headers(mach_headers)
 live_records = filter_records(records, mininum_size=0)
 dump_records_total_size(live_records)
-dump_records(mach_headers, stacks, live_records)
+dump_records(mach_headers, stacks, live_records, 5)
