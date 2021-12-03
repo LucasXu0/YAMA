@@ -222,6 +222,7 @@ int yama_start_logging(void)
     ret = __mach_stack_logging_enumerate_records(task, 0, enumerator, (void *)table);
     checkRet(ret);
     dump_mach_headers();
+    serialize_table();
     return ret;
 }
 
