@@ -21,6 +21,7 @@ extern "C" {
 #include <unordered_map>
 #include <mach/task.h>
 #include <mach-o/dyld.h>
+#include <cstdlib>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -143,7 +144,7 @@ void enumerator(mach_stack_logging_record_t record, void *context)
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
-    uint32_t out_frames_count = 512;
+    uint32_t out_frames_count = STACK_LOGGING_MAX_STACK_SIZE;
     mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
     __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
                                                    record.stack_identifier,

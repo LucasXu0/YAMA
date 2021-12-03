@@ -12,6 +12,7 @@
 
 int main(int argc, char * argv[])
 {
+    
     [[NSFileManager defaultManager] removeItemAtPath:NSTemporaryDirectory() error:nil];
     [[NSFileManager defaultManager] createDirectoryAtPath:NSTemporaryDirectory() withIntermediateDirectories:YES attributes:nil error:nil];
     

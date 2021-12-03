@@ -8,9 +8,10 @@ import subprocess
 from colorama import Fore, Back, Style
 
 # input_dir
-INTPUT_DIR = sys.argv[1]
+ARCH = sys.argv[1]
 IOS_DEVICESUPPORT_PATH = sys.argv[2]
 APP_DSYM_PATH = sys.argv[3]
+INTPUT_DIR = sys.argv[4]
 
 YAMA_FILE_MACH_HEADER   = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
 YAMA_FILE_RECORDS       = INTPUT_DIR + '/YAMA_FILE_RECORDS'
@@ -61,7 +62,7 @@ def resolve_symbol(mach_headers, address, only_in_main_executable=True):
         return ''
 
     (slide, symbol_path) = mach_headers[position - 1]
-    command = 'atos' + ' -arch' + ' arm64' + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
+    command = 'atos' + ' -arch ' + ARCH + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
     # print(command)
     return subprocess.check_output(command, shell=True).decode("utf-8").strip('\n')
 
@@ -76,7 +77,7 @@ def get_records():
     records = []
     for raw_record in open(YAMA_FILE_RECORDS):
         raw_record = raw_record.strip('\n').split(' ') # 00000020 07d00400000e7971 0000000000004000 000000010562c000
-        records.append(Record(type_flag=raw_record[0], stack_id=raw_record[1], size=int(raw_record[2]), address=raw_record[3]))
+        records.append(Record(type_flag=int(raw_record[0]), stack_id=raw_record[1], size=int(raw_record[2]), address=raw_record[3]))
     return records
 
 def dump_records_total_size(records):
@@ -88,12 +89,14 @@ def dump_records_total_size(records):
 
 def dump_records(mach_headers, stacks, records, maximum_level=512):
     for record in records:
-        print("address({}), size = {}".format(record.address, record.size))
+        print("address({}), size = {:.2f}MB".format(record.address, record.size / 1024.0 / 1024.0))
         _maximum_level = maximum_level
+        if record.stack_id not in stacks:
+            continue
         for frame in stacks[record.stack_id]:
             if not _maximum_level:
                 break
-            ret = resolve_symbol(mach_headers, frame)
+            ret = resolve_symbol(mach_headers, frame, only_in_main_executable=False)
             if len(ret):
                 print('-> {}'.format(ret))
             _maximum_level -= 1
@@ -106,7 +109,7 @@ def filter_records(records, only_live=True, mininum_size=1024, sort=True):
         if only_live:
             if record.address in filter_records:
                 filter_records.pop(record.address)
-            elif record.type_flag == '00000002':
+            elif record.type_flag & 2 or record.type_flag & 16 and record.type_flag & 128 == 0:
                 filter_records[record.address] = record
     ret = list(filter_records.values())
     if sort:

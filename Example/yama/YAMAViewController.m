@@ -45,6 +45,7 @@
 {
     // image
     self.imageView.image = [UIImage imageNamed:@"sample.jpg"];
+    
     printf("init sample image\n");
     
     // malloc
