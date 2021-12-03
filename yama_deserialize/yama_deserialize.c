@@ -5,24 +5,16 @@
 #include <mach/mach_init.h>
 #include <stack_logging.h>
 
+// gcc -I. yama_deserialize.c -o yama_deserialize
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 #define ENABLE_DEBUG_LOG 0
 
-void print_hello_world()
+struct backtrace_uniquing_table *table;
+int initialize(const char *buffer_path)
 {
-    printf("Hello world!\n");
-}
-
-int main(int argc, char const *argv[])
-{   
-    if (argc < 3) {
-        printf("arguments is not OK!");
-        return 0;
-    }
-
-    const char *buffer_path = argv[1];
     FILE *buffer_file = fopen(buffer_path, "r");
     if (!buffer_file) {
         printf("open buffer file fail\n");
@@ -38,13 +30,25 @@ int main(int argc, char const *argv[])
     fread(buffer, 1, buffer_size, buffer_file);
 
     // serialize the buffer to backtrace_uniquing_table
-    struct backtrace_uniquing_table *table = __mach_stack_logging_uniquing_table_copy_from_serialized(buffer, buffer_size);
+    table = __mach_stack_logging_uniquing_table_copy_from_serialized(buffer, buffer_size);
     if (!table) {
         printf("serialize the table fail\n");
+        return 0;
     }
-    
+
+    #if ENABLE_DEBUG_LOG
+    printf("initialize success\n");
+    #endif
+
+    return 1;
+}
+
+const char *read_stack(uint64_t stack_identifier)
+{
     // read the stack
-    uint64_t stack_identifier = atoi(argv[2]);
+    #if ENABLE_DEBUG_LOG
+    printf("%016llx\n", stack_identifier);
+    #endif
     uint32_t out_frames_count = STACK_LOGGING_MAX_STACK_SIZE;
     mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
     __mach_stack_logging_uniquing_table_read_stack(table,
@@ -52,6 +56,8 @@ int main(int argc, char const *argv[])
                                                    out_frames_buffer,
                                                    &out_frames_count,
                                                    out_frames_count);
+    char *ret = (char *)malloc(sizeof(char) *STACK_LOGGING_MAX_STACK_SIZE * 64);
+    char *_ret = ret;
     if (out_frames_count) {
         #if ENABLE_DEBUG_LOG
         printf("%016llx\n", stack_identifier);
@@ -62,11 +68,24 @@ int main(int argc, char const *argv[])
             #if ENABLE_DEBUG_LOG
             printf("-> %016llx\n", frame);
             #endif
+            sprintf(_ret, "%016llx ", frame);
+            _ret += 17;
         }
     }
 
     free(out_frames_buffer);
 
+    return ret;
+}
+
+int main(int argc, char const *argv[])
+{
+    const char *buffer_path = argv[1];
+    uint64_t address = atoi(argv[2]);
+    initialize(buffer_path);
+    const char *ret = read_stack(address);
+    printf("ret = %s\n", ret);
+    free((void *)ret);
     return 0;
 }
 
