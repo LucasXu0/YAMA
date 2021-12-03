@@ -14,7 +14,7 @@
 @property (nonatomic, strong) UIButton *loggingButton;
 @property (nonatomic, strong) UIButton *increaseMemoryButton;
 
-@property (nonatomic, strong) UIImage *image;
+@property (nonatomic, strong) UIImageView *imageView;
 
 @end
 
@@ -24,6 +24,9 @@
 {
     [super viewDidLoad];
 	// Do any additional setup after loading the view, typically from a nib.
+    
+    self.imageView = [[UIImageView alloc] initWithFrame:self.view.frame];
+    [self.view addSubview:self.imageView];
     
     self.loggingButton = [[UIButton alloc] initWithFrame:CGRectMake(0, 100, self.view.frame.size.width, 100)];
     [self.view addSubview:self.loggingButton];
@@ -41,7 +44,7 @@
 - (void)increaseMemory
 {
     // image
-    self.image = [UIImage imageNamed:@"sample"];
+    self.imageView.image = [UIImage imageNamed:@"sample.jpg"];
     printf("init sample image\n");
     
     // malloc

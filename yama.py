@@ -35,25 +35,35 @@ def get_mach_headers():
         if os.path.exists(symbol_path):
             mach_headers.append((slide, symbol_path))
         else:
+            mach_headers.append((slide, '/'))
             bad_case += 1
             print(symbol_path)
             print(Fore.CYAN + 'could not find library(' + path + ') in your local path')
         minimum_slide = min(minimum_slide, slide)
     print(Style.RESET_ALL)
     print('bad case in [convert_mach_header_to_local_symbols] = ' + str(bad_case))
-    mach_headers.append((minimum_slide, APP_DSYM_PATH))
     mach_headers.sort()
+    mach_headers.pop(0)
+    mach_headers.insert(0, (minimum_slide, APP_DSYM_PATH))
     return mach_headers
 
-def resolve_symbol(mach_headers, address):
+def dump_headers(mach_headers):
+    for i in range(len(mach_headers)):
+        print('[{:3d}] {} {}'.format(i, mach_headers[i][0], mach_headers[i][1]))
+
+def resolve_symbol(mach_headers, address, only_in_main_executable=True):
     def str_to_hex(str):
         return hex(int(str, 16))
 
     position = bisect.bisect_left(mach_headers, (address, 'AAAAA'))
+
+    if only_in_main_executable and position > 1:
+        return ''
+
     (slide, symbol_path) = mach_headers[position - 1]
     command = 'atos' + ' -arch' + ' arm64' + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
     # print(command)
-    subprocess.call(command, shell=True)
+    return subprocess.check_output(command, shell=True).decode("utf-8").strip('\n')
 
 def get_stacks():
     stacks = {}
@@ -69,36 +79,45 @@ def get_records():
         records.append(Record(type_flag=raw_record[0], stack_id=raw_record[1], size=int(raw_record[2]), address=raw_record[3]))
     return records
 
-def filter_live_records(records):
-    filter_records = {}
+def dump_records_total_size(records):
+    total_size = 0
     for record in records:
-        if record.address in filter_records:
-            filter_records.pop(record.address)
-        elif record.type_flag == '00000002':
-            filter_records[record.address] = record
-    return filter_records.values()
+        total_size += record.size
+    print(Fore.BLUE + 'total size = {}MB'.format(total_size / 1024.0 / 1024.0))
+    print(Style.RESET_ALL)
 
-def dump_live_objcect(mach_headers, stacks, records, minimum_size, maximum_level):
+def dump_records(mach_headers, stacks, records, maximum_level=512):
     for record in records:
-        if record.size < minimum_size:
-            continue
         print("address({}), size = {}".format(record.address, record.size))
-        stack = stacks[record.stack_id]
         _maximum_level = maximum_level
-        for frame in stack:
+        for frame in stacks[record.stack_id]:
             if not _maximum_level:
                 break
-            resolve_symbol(mach_headers, frame)
+            ret = resolve_symbol(mach_headers, frame)
+            if len(ret):
+                print('-> {}'.format(ret))
             _maximum_level -= 1
 
+def filter_records(records, only_live=True, mininum_size=1024, sort=True):
+    filter_records = {}
+    for record in records:
+        if record.size < mininum_size:
+            continue
+        if only_live:
+            if record.address in filter_records:
+                filter_records.pop(record.address)
+            elif record.type_flag == '00000002':
+                filter_records[record.address] = record
+    ret = list(filter_records.values())
+    if sort:
+        ret = sorted(ret, key=lambda x: x.size, reverse=True)
+    return ret
+
 mach_headers = get_mach_headers()
-
-for header in mach_headers:
-    print(header)
-
 stacks = get_stacks()
 records = get_records()
-# filter_records = filter_live_records(records)
-# print(len(records))
 
-# dump_live_objcect(mach_headers, stacks, records, 79 - 1, 5)
+dump_headers(mach_headers)
+live_records = filter_records(records, mininum_size=0)
+dump_records_total_size(live_records)
+dump_records(mach_headers, stacks, live_records)

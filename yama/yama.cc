@@ -25,7 +25,7 @@ extern "C" {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-#define ENABLE_DEBUG_LOG 1
+#define ENABLE_DEBUG_LOG 0
 
 #define checkRet(ret) if (ret != KERN_SUCCESS) return ret
 
@@ -139,7 +139,7 @@ void enumerator(mach_stack_logging_record_t record, void *context)
     if (!context) return;
         
 #if ENABLE_DEBUG_LOG
-    printf("[YAMA] %08x %016llx %lld %llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
+    printf("[YAMA] [%s] %016llx %lld %016llx\n", readable_type_flags(record.type_flags), record.stack_identifier, record.argument, record.address);
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
