@@ -139,7 +139,7 @@ void enumerator(mach_stack_logging_record_t record, void *context)
     if (!context) return;
         
 #if ENABLE_DEBUG_LOG
-    printf("[YAMA] %08x %016llx %016llx %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
+    printf("[YAMA] %08x %016llx %lld %llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
@@ -208,6 +208,9 @@ int yama_prepare_logging(yama_logging_context_t *context)
 extern uint64_t __mach_stack_logging_shared_memory_address;
 int yama_start_logging(void)
 {
+#if ENABLE_DEBUG_LOG
+    printf("[MAYA] start logging\n");
+#endif
     task_t task = current_task();
     boolean_t lite_mode;
     kern_return_t ret = KERN_SUCCESS;

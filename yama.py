@@ -10,6 +10,7 @@ from colorama import Fore, Back, Style
 # input_dir
 INTPUT_DIR = sys.argv[1]
 IOS_DEVICESUPPORT_PATH = sys.argv[2]
+APP_DSYM_PATH = sys.argv[3]
 
 YAMA_FILE_MACH_HEADER   = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
 YAMA_FILE_RECORDS       = INTPUT_DIR + '/YAMA_FILE_RECORDS'
@@ -26,6 +27,7 @@ class Record:
 def get_mach_headers():
     bad_case = 0
     mach_headers = []
+    minimum_slide = 'ffffffffffffffff'
     for header in open(YAMA_FILE_MACH_HEADER):
         header = header.strip('\n').split(' ') # ('0000000102644000', /Developer/usr/lib/libBacktraceRecording.dylib)
         slide, path = header[0], header[1]
@@ -36,8 +38,10 @@ def get_mach_headers():
             bad_case += 1
             print(symbol_path)
             print(Fore.CYAN + 'could not find library(' + path + ') in your local path')
+        minimum_slide = min(minimum_slide, slide)
     print(Style.RESET_ALL)
     print('bad case in [convert_mach_header_to_local_symbols] = ' + str(bad_case))
+    mach_headers.append((minimum_slide, APP_DSYM_PATH))
     mach_headers.sort()
     return mach_headers
 
@@ -76,8 +80,6 @@ def filter_live_records(records):
 
 def dump_live_objcect(mach_headers, stacks, records, minimum_size, maximum_level):
     for record in records:
-        print(record.address)
-        continue
         if record.size < minimum_size:
             continue
         print("address({}), size = {}".format(record.address, record.size))
@@ -90,9 +92,13 @@ def dump_live_objcect(mach_headers, stacks, records, minimum_size, maximum_level
             _maximum_level -= 1
 
 mach_headers = get_mach_headers()
+
+for header in mach_headers:
+    print(header)
+
 stacks = get_stacks()
 records = get_records()
 # filter_records = filter_live_records(records)
-print(len(records))
+# print(len(records))
 
-dump_live_objcect(mach_headers, stacks, records, 79 - 1, 5)
+# dump_live_objcect(mach_headers, stacks, records, 79 - 1, 5)
