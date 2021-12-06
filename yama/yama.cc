@@ -26,8 +26,6 @@ extern "C" {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-#define ENABLE_DEBUG_LOG 0
-
 #define checkRet(ret) if (ret != KERN_SUCCESS) return ret
 
 typedef enum : int {
@@ -35,6 +33,7 @@ typedef enum : int {
     YAMA_FILE_TYPE_RECORDS,
     YAMA_FILE_TYPE_STACKS,
     YAMA_FILE_TYPE_SERIALIZE_TABLE,
+    YAMA_FILE_TYPE_SYSTEM_INFO,
     // ...
     YAMA_FILE_TYPE_ALL,
 } YAMA_FILE_TYPE;
@@ -67,7 +66,7 @@ const char *readable_type_flags(uint32_t type_flags)
 
 static inline const char *string_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
 {
-    static char const *strings[] = {"MACH_HEADER", "RECORDS", "STACKS", "SERIALIZE_TABLE"};
+    static char const *strings[] = {"MACH_HEADER", "RECORDS", "STACKS", "SERIALIZE_TABLE", "SYSTEM_INFO"};
     return strings[type];
 }
 
@@ -79,7 +78,7 @@ static inline const char *path_from_YAMA_FILE_TYPE(YAMA_FILE_TYPE type)
     strcpy(file_path, logging_context->output_dir);
     strcat(file_path, file_prefix);
     strcat(file_path, file_type);
-#if ENABLE_DEBUG_LOG
+#if YAMA_ENABLE_DEBUG_LOG
     printf("[YAMA] file type(%d) => %s\n", type, file_path);
 #endif
     return file_path;
@@ -139,7 +138,7 @@ void enumerator(mach_stack_logging_record_t record, void *context)
 {
     if (!context) return;
         
-#if ENABLE_DEBUG_LOG
+#if YAMA_ENABLE_DEBUG_LOG
     printf("[YAMA] [%s] %016llx %lld %016llx\n", readable_type_flags(record.type_flags), record.stack_identifier, record.argument, record.address);
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
@@ -158,13 +157,13 @@ void enumerator(mach_stack_logging_record_t record, void *context)
                 mach_vm_address_t frame = out_frames_buffer[i];
                 if (!frame) continue;
                 yama_fprintf(YAMA_FILE_TYPE_STACKS, " %016llx", frame);
-    #if ENABLE_DEBUG_LOG
+    #if YAMA_ENABLE_DEBUG_LOG
                 printf("[YAMA] -> %llx\n", frame);
     #endif
             }
             yama_fprintf(YAMA_FILE_TYPE_STACKS, "\n");
         } else {
-    #if ENABLE_DEBUG_LOG
+    #if YAMA_ENABLE_DEBUG_LOG
             printf("[YAMA] what? could not find the frames for %lld\n", record.stack_identifier);
     #endif
         }
@@ -178,12 +177,12 @@ void add_image_callback(const struct mach_header *header, intptr_t slide)
     Dl_info header_info;
     dladdr(header, &header_info);
     if (header_info.dli_fname && strlen(header_info.dli_fname) > 0) {
-#if ENABLE_DEBUG_LOG
+#if YAMA_ENABLE_DEBUG_LOG
         printf("[YAMA] [%03d] %016lx %s\n", header_count++, (unsigned long)header_info.dli_fbase, header_info.dli_fname);
 #endif
         yama_fprintf(YAMA_FILE_TYPE_MACH_HEADERS, "%016lx %s\n", header_info.dli_fbase, header_info.dli_fname);
     } else {
-#if ENABLE_DEBUG_LOG
+#if YAMA_ENABLE_DEBUG_LOG
         printf("[YAMA] what? could not find the name for address(%p)\n", (void *)header);
 #endif
     }
@@ -192,6 +191,11 @@ void add_image_callback(const struct mach_header *header, intptr_t slide)
 void dump_mach_headers(void)
 {
     _dyld_register_func_for_add_image(add_image_callback);
+}
+
+void dump_system_info(void)
+{
+    yama_fprintf(YAMA_FILE_TYPE_SYSTEM_INFO, "%s %s %s", logging_context->system_arch, logging_context->system_name, logging_context->system_version);
 }
 
 #pragma mark - Public
@@ -211,7 +215,7 @@ int yama_prepare_logging(yama_logging_context_t *context)
 extern uint64_t __mach_stack_logging_shared_memory_address;
 int yama_start_logging(void)
 {
-#if ENABLE_DEBUG_LOG
+#if YAMA_ENABLE_DEBUG_LOG
     printf("[MAYA] start logging\n");
 #endif
     task_t task = current_task();
@@ -224,6 +228,7 @@ int yama_start_logging(void)
     ret = __mach_stack_logging_enumerate_records(task, 0, enumerator, (void *)table);
     checkRet(ret);
     dump_mach_headers();
+    dump_system_info();
     if (logging_context->mode == YAMA_LOGGING_MODE_FAST) serialize_table();
     return ret;
 }

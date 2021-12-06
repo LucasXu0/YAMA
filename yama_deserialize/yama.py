@@ -10,16 +10,17 @@ import math
 import ctypes
 
 # input_dir
-ARCH = sys.argv[1]
-IOS_DEVICESUPPORT_PATH = sys.argv[2]
-APP_DSYM_PATH = sys.argv[3]
-INTPUT_DIR = sys.argv[4]
-MODE = sys.argv[5]
+ARCH = ''
+IOS_DEVICESUPPORT_PATH = sys.argv[1]
+APP_DSYM_PATH = sys.argv[2]
+INTPUT_DIR = sys.argv[3]
+MODE = sys.argv[4]
 
 YAMA_FILE_MACH_HEADER       = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
 YAMA_FILE_RECORDS           = INTPUT_DIR + '/YAMA_FILE_RECORDS'
 YAMA_FILE_STACKS            = INTPUT_DIR + '/YAMA_FILE_STACKS'
 YAMA_FILE_SERIALIZE_TABLE   = INTPUT_DIR + '/YAMA_FILE_SERIALIZE_TABLE'
+YAMA_FILE_SYSTEM_INFO       = INTPUT_DIR + '/YAMA_FILE_SYSTEM_INFO'
 
 def convert_size(size_bytes):
    if size_bytes == 0:
@@ -37,7 +38,8 @@ class Record:
         self.size = size
         self.address = address
 
-# convert mach_headers path to local path
+# Get infos from input dir
+
 def get_mach_headers():
     bad_case = 0
     mach_headers = []
@@ -58,24 +60,6 @@ def get_mach_headers():
     mach_headers.pop(0)
     mach_headers.insert(0, (minimum_slide, APP_DSYM_PATH))
     return mach_headers
-
-def dump_headers(mach_headers):
-    for i in range(len(mach_headers)):
-        print('[{:3d}] {} {}'.format(i, mach_headers[i][0], mach_headers[i][1]))
-
-def resolve_symbol(mach_headers, address, only_in_main_executable=True):
-    def str_to_hex(str):
-        return hex(int(str, 16))
-    
-    position = bisect.bisect_left(mach_headers, (address, 'AAAAA'))
-    if only_in_main_executable and position > 1:
-        return ''
-    (slide, symbol_path) = mach_headers[position - 1]
-    if not os.path.exists(symbol_path) or symbol_path == '/':
-        return address
-    command = 'atos' + ' -arch ' + ARCH + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
-    # print(command)
-    return subprocess.check_output(command, shell=True).decode("utf-8").strip('\n')
 
 def get_stacks():
     stacks = {}
@@ -98,6 +82,30 @@ def get_deserialize():
         print('get_deserialize fail')
     yama_deserialize.read_stack.restype = ctypes.c_char_p
     return yama_deserialize
+
+def get_system_info():
+    for info in open(YAMA_FILE_SYSTEM_INFO):
+        info = info.split(' ')
+        return (info[0], info[1], info[2])
+
+# Helper Funtions
+def dump_headers(mach_headers):
+    for i in range(len(mach_headers)):
+        print('[{:3d}] {} {}'.format(i, mach_headers[i][0], mach_headers[i][1]))
+
+def resolve_symbol(mach_headers, address, only_in_main_executable=True):
+    def str_to_hex(str):
+        return hex(int(str, 16))
+    
+    position = bisect.bisect_left(mach_headers, (address, 'AAAAA'))
+    if only_in_main_executable and position > 1:
+        return ''
+    (slide, symbol_path) = mach_headers[position - 1]
+    if not os.path.exists(symbol_path) or symbol_path == '/':
+        return address
+    command = 'atos' + ' -arch ' + ARCH + ' -o "' + symbol_path + '" -l ' + str_to_hex(slide) + ' ' + str_to_hex(address)
+    # print(command)
+    return subprocess.check_output(command, shell=True).decode("utf-8").strip('\n')
 
 def dump_records_total_size(records):
     total_size = 0
@@ -147,6 +155,11 @@ def filter_records(records, only_live=True, mininum_size=1024, sort=True):
     if sort:
         ret = sorted(ret, key=lambda x: x.size, reverse=True)
     return ret
+
+# main 
+
+(ARCH, system_name, system_version) = get_system_info()
+print('arch = {}, sytem = {}, version = {}'.format(ARCH, system_name, system_version))
 
 mach_headers = get_mach_headers()
 # stacks = get_stacks()
