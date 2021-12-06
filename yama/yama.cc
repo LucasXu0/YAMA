@@ -28,6 +28,16 @@ extern "C" {
 
 #define checkRet(ret) if (ret != KERN_SUCCESS) return ret
 
+void yama_malloc_logger(uint32_t type,
+                        uintptr_t arg1,
+                        uintptr_t arg2,
+                        uintptr_t arg3,
+                        uintptr_t result,
+                        uint32_t num_hot_frames_to_skip)
+{
+    printf("type = %u, a1 = %lu, a2 =%lu, a3 = %lu, res = %lu, n = %d\n", type, arg1, arg2, arg3, result, num_hot_frames_to_skip);
+}
+
 typedef enum : int {
     YAMA_FILE_TYPE_MACH_HEADERS,
     YAMA_FILE_TYPE_RECORDS,
@@ -105,6 +115,8 @@ void uninitialize_yama_filse(void)
             yama_files[i] = NULL;
         }
     }
+    
+    free(yama_files);
 }
 
 void inline yama_fwrite(YAMA_FILE_TYPE type, const void * __restrict __ptr, size_t __size, size_t __nitems)
@@ -202,11 +214,12 @@ void dump_system_info(void)
 
 int yama_initialize(void)
 {
-    return turn_on_stack_logging(stack_logging_mode_all);
+    return turn_on_stack_logging(stack_logging_mode_lite);
 }
 
 int yama_prepare_logging(yama_logging_context_t *context)
 {
+    malloc_logger = yama_malloc_logger;
     logging_context = context;
     int ret = initialize_yama_files();
     return ret;

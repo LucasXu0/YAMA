@@ -37,6 +37,14 @@
     self.tableView.delegate = self;
     self.tableView.dataSource = self;
     [self.tableView registerClass:[UITableViewCell class] forCellReuseIdentifier:NSStringFromClass(self.class)];
+    
+    yama_logging_context_t *context = (yama_logging_context_t *)malloc(sizeof(yama_logging_context_t));
+    context->output_dir = (char *)NSTemporaryDirectory().UTF8String;
+    context->mode = YAMA_LOGGING_MODE_SLOW;
+    context->system_version = [[UIDevice currentDevice] systemVersion].UTF8String;
+    context->system_arch = yama_get_device_arch();
+    context->system_name = [[UIDevice currentDevice] systemName].UTF8String;
+    yama_prepare_logging(context);
 }
 
 - (void)testMalloc
