@@ -8,6 +8,7 @@
 
 #import "YAMAViewController.h"
 #import "yama.h"
+#import "yama_system_info.h"
 
 @interface YAMAViewController () <UITableViewDelegate, UITableViewDataSource>
 
@@ -56,6 +57,9 @@
     yama_logging_context_t *context = (yama_logging_context_t *)malloc(sizeof(yama_logging_context_t));
     context->output_dir = (char *)NSTemporaryDirectory().UTF8String;
     context->mode = YAMA_LOGGING_MODE_SLOW;
+    context->system_version = [[UIDevice currentDevice] systemVersion].UTF8String;
+    context->system_arch = yama_get_device_arch();
+    context->system_name = [[UIDevice currentDevice] systemName].UTF8String;
     yama_prepare_logging(context);
     
     double start = CFAbsoluteTimeGetCurrent();
@@ -74,6 +78,9 @@
     yama_logging_context_t *context = (yama_logging_context_t *)malloc(sizeof(yama_logging_context_t));
     context->output_dir = (char *)NSTemporaryDirectory().UTF8String;
     context->mode = YAMA_LOGGING_MODE_FAST;
+    context->system_version = [[UIDevice currentDevice] systemVersion].UTF8String;
+    context->system_arch = yama_get_device_arch();
+    context->system_name = [[UIDevice currentDevice] systemName].UTF8String;
     yama_prepare_logging(context);
     
     double start = CFAbsoluteTimeGetCurrent();
