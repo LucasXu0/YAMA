@@ -19,8 +19,14 @@ extern "C" {
 #define YAMA_LOGGING_CONTEXT_IS_NULL    10001
 #define YAMA_INIT_TABLE_ERROR           10002
 
+typedef enum : int {
+    YAMA_LOGGING_MODE_SLOW,
+    YAMA_LOGGING_MODE_FAST,
+} YAMA_LOGGING_MODE;
+
 typedef struct yama_logging_context {
     char *output_dir;
+    YAMA_LOGGING_MODE mode;
 } yama_logging_context_t;
 
 extern int yama_initialize(void);

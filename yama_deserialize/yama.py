@@ -123,7 +123,7 @@ def dump_records_with_deserialize(mach_header, deserialize, records, maximum_lev
     for record in records:
         print("address({}), size = {}".format(record.address, convert_size(record.size)))
         _maximum_level = maximum_level
-        stacks = deserialize.read_stack(ctypes.c_uint64(0x02db940000001fe1))
+        stacks = deserialize.read_stack(ctypes.c_uint64(int(record.stack_id, 16)))
         stacks = stacks.decode('utf-8').split(' ')
         for frame in stacks:
             if not _maximum_level:
@@ -154,7 +154,7 @@ records = get_records()
 deserialize = get_deserialize()
 
 # dump_headers(mach_headers)
-live_records = filter_records(records, mininum_size=0)
+live_records = filter_records(records, mininum_size=1024)
 dump_records_total_size(live_records)
 # dump_records_with_stacks(mach_headers, stacks, live_records, 5)
 dump_records_with_deserialize(mach_headers, deserialize, live_records, 5)
