@@ -144,30 +144,32 @@ void enumerator(mach_stack_logging_record_t record, void *context)
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
-    uint32_t out_frames_count = STACK_LOGGING_MAX_STACK_SIZE;
-    mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
-    __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
-                                                   record.stack_identifier,
-                                                   out_frames_buffer,
-                                                   &out_frames_count,
-                                                   out_frames_count);
-    if (out_frames_count) {
-        yama_fprintf(YAMA_FILE_TYPE_STACKS, "%016llx", record.stack_identifier);
-        for (int i = 0; i < out_frames_count; i++) {
-            mach_vm_address_t frame = out_frames_buffer[i];
-            if (!frame) continue;
-            yama_fprintf(YAMA_FILE_TYPE_STACKS, " %016llx", frame);
-#if ENABLE_DEBUG_LOG
-            printf("[YAMA] -> %llx\n", frame);
-#endif
+    if (logging_context->mode == YAMA_LOGGING_MODE_SLOW) {
+        uint32_t out_frames_count = STACK_LOGGING_MAX_STACK_SIZE;
+        mach_vm_address_t *out_frames_buffer = (mach_vm_address_t *)malloc(sizeof(mach_vm_address_t) * out_frames_count);
+        __mach_stack_logging_uniquing_table_read_stack((struct backtrace_uniquing_table *)context,
+                                                       record.stack_identifier,
+                                                       out_frames_buffer,
+                                                       &out_frames_count,
+                                                       out_frames_count);
+        if (out_frames_count) {
+            yama_fprintf(YAMA_FILE_TYPE_STACKS, "%016llx", record.stack_identifier);
+            for (int i = 0; i < out_frames_count; i++) {
+                mach_vm_address_t frame = out_frames_buffer[i];
+                if (!frame) continue;
+                yama_fprintf(YAMA_FILE_TYPE_STACKS, " %016llx", frame);
+    #if ENABLE_DEBUG_LOG
+                printf("[YAMA] -> %llx\n", frame);
+    #endif
+            }
+            yama_fprintf(YAMA_FILE_TYPE_STACKS, "\n");
+        } else {
+    #if ENABLE_DEBUG_LOG
+            printf("[YAMA] what? could not find the frames for %lld\n", record.stack_identifier);
+    #endif
         }
-        yama_fprintf(YAMA_FILE_TYPE_STACKS, "\n");
-    } else {
-#if ENABLE_DEBUG_LOG
-        printf("[YAMA] what? could not find the frames for %lld\n", record.stack_identifier);
-#endif
+        free(out_frames_buffer);
     }
-    free(out_frames_buffer);
 }
 
 static int header_count = 0;
@@ -222,6 +224,7 @@ int yama_start_logging(void)
     ret = __mach_stack_logging_enumerate_records(task, 0, enumerator, (void *)table);
     checkRet(ret);
     dump_mach_headers();
+    if (logging_context->mode == YAMA_LOGGING_MODE_FAST) serialize_table();
     return ret;
 }
 

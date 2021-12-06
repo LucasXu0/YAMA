@@ -7,6 +7,7 @@ import bisect
 import subprocess
 from colorama import Fore, Style
 import math
+import ctypes
 
 # input_dir
 ARCH = sys.argv[1]
@@ -15,9 +16,10 @@ APP_DSYM_PATH = sys.argv[3]
 INTPUT_DIR = sys.argv[4]
 MODE = sys.argv[5]
 
-YAMA_FILE_MACH_HEADER   = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
-YAMA_FILE_RECORDS       = INTPUT_DIR + '/YAMA_FILE_RECORDS'
-YAMA_FILE_STACKS        = INTPUT_DIR + '/YAMA_FILE_STACKS'
+YAMA_FILE_MACH_HEADER       = INTPUT_DIR + '/YAMA_FILE_MACH_HEADER'
+YAMA_FILE_RECORDS           = INTPUT_DIR + '/YAMA_FILE_RECORDS'
+YAMA_FILE_STACKS            = INTPUT_DIR + '/YAMA_FILE_STACKS'
+YAMA_FILE_SERIALIZE_TABLE   = INTPUT_DIR + '/YAMA_FILE_SERIALIZE_TABLE'
 
 def convert_size(size_bytes):
    if size_bytes == 0:
@@ -64,7 +66,7 @@ def dump_headers(mach_headers):
 def resolve_symbol(mach_headers, address, only_in_main_executable=True):
     def str_to_hex(str):
         return hex(int(str, 16))
-
+    
     position = bisect.bisect_left(mach_headers, (address, 'AAAAA'))
     if only_in_main_executable and position > 1:
         return ''
@@ -89,19 +91,41 @@ def get_records():
         records.append(Record(type_flag=int(raw_record[0]), stack_id=raw_record[1], size=int(raw_record[2]), address=raw_record[3]))
     return records
 
+def get_deserialize():
+    yama_deserialize = ctypes.cdll.LoadLibrary("yama_deserialize")
+    ret = yama_deserialize.initialize(str.encode(YAMA_FILE_SERIALIZE_TABLE))
+    if ret == 0:
+        print('get_deserialize fail')
+    yama_deserialize.read_stack.restype = ctypes.c_char_p
+    return yama_deserialize
+
 def dump_records_total_size(records):
     total_size = 0
     for record in records:
         total_size += record.size
     print(Fore.YELLOW + '\n[YAMA] Total Size = {}'.format(convert_size(total_size)) + Style.RESET_ALL)
 
-def dump_records(mach_headers, stacks, records, maximum_level=512):
+def dump_records_with_stacks(mach_headers, stacks, records, maximum_level=512):
     for record in records:
         print("address({}), size = {}".format(record.address, convert_size(record.size)))
         _maximum_level = maximum_level
         if record.stack_id not in stacks:
             continue
         for frame in stacks[record.stack_id]:
+            if not _maximum_level:
+                break
+            ret = resolve_symbol(mach_headers, frame, only_in_main_executable=(MODE == 'lite'))
+            if len(ret):
+                print('-> {}'.format(ret))
+            _maximum_level -= 1
+
+def dump_records_with_deserialize(mach_header, deserialize, records, maximum_level=512):
+    for record in records:
+        print("address({}), size = {}".format(record.address, convert_size(record.size)))
+        _maximum_level = maximum_level
+        stacks = deserialize.read_stack(ctypes.c_uint64(int(record.stack_id, 16)))
+        stacks = stacks.decode('utf-8').split(' ')
+        for frame in stacks:
             if not _maximum_level:
                 break
             ret = resolve_symbol(mach_headers, frame, only_in_main_executable=(MODE == 'lite'))
@@ -125,10 +149,12 @@ def filter_records(records, only_live=True, mininum_size=1024, sort=True):
     return ret
 
 mach_headers = get_mach_headers()
-stacks = get_stacks()
+# stacks = get_stacks()
 records = get_records()
+deserialize = get_deserialize()
 
 # dump_headers(mach_headers)
-live_records = filter_records(records, mininum_size=0)
+live_records = filter_records(records, mininum_size=1024)
 dump_records_total_size(live_records)
-dump_records(mach_headers, stacks, live_records, 5)
+# dump_records_with_stacks(mach_headers, stacks, live_records, 5)
+dump_records_with_deserialize(mach_headers, deserialize, live_records, 5)
