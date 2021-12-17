@@ -203,7 +203,7 @@ void dump_system_info(void)
 
 int yama_initialize(void)
 {
-    return turn_on_stack_logging(stack_logging_mode_all);
+    return turn_on_stack_logging(stack_logging_mode_lite);
 }
 
 int yama_prepare_logging(yama_logging_context_t *context)
@@ -240,7 +240,7 @@ int yama_start_logging(void)
         struct backtrace_uniquing_table *but = (struct backtrace_uniquing_table *)sma;
         // printf("[%d] numPages = %llu, numNodes = %llu, tableSize = %llu\n", i, but->numPages, but->numNodes, but->tableSize);
         if (table->numPages == but->numPages && table->numNodes == but->numNodes && table->tableSize == but->tableSize) {
-            printf("Hit the target(%d)!\n", i);
+            printf("Hit the target(%d) = %p!\n", i, but);
             break;
         }
         sma++;
@@ -248,10 +248,11 @@ int yama_start_logging(void)
 
     // 往后遍历
     sma = (uint8_t *)__mach_stack_logging_shared_memory_address;
-    while (i >= 0) {
-        i -= sizeof(stack_logging_index_event);
+    i = 0;
+    while (i < 16384) {
         stack_logging_index_event *slie = (stack_logging_index_event *)(sma + i);
         printf("[YAMA] slie %s %016llx %lld %016llx\n", readable_type_flags(slie->flags), slie->offset, slie->argument, STACK_LOGGING_DISGUISE(slie->address));
+        i += 32;
     }
 
     if (!table) return YAMA_INIT_TABLE_ERROR;
