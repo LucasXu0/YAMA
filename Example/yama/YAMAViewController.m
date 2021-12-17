@@ -31,6 +31,7 @@
     
     [self.dataSource[1] addObject:@"start slow logging"];
     [self.dataSource[1] addObject:@"start fast logging"];
+    [self.dataSource[1] addObject:@"stop logging"];
     
     self.tableView = [[UITableView alloc] initWithFrame:self.view.frame style:UITableViewStyleGrouped];
     [self.view addSubview:self.tableView];
@@ -66,11 +67,6 @@
     yama_start_logging();
     double end = CFAbsoluteTimeGetCurrent();
     printf("yama_start_logging cost %lfms\n", (end - start) * 1000.0);
-        
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        yama_stop_logging();
-        printf("😁 done\n");
-    });
 }
 
 - (void)startFastLogging
@@ -87,11 +83,12 @@
     yama_start_logging();
     double end = CFAbsoluteTimeGetCurrent();
     printf("yama_start_logging cost %lfms\n", (end - start) * 1000.0);
-        
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        yama_stop_logging();
-        printf("😁 done\n");
-    });
+}
+
+- (void)stopLogging
+{
+    yama_stop_logging();
+    printf("😁 done\n");
 }
 
 #pragma mark - UITableView
@@ -128,6 +125,8 @@
             [self startSlowLogging];
         } else if (row == 1) {
             [self startFastLogging];
+        } else if (row == 2) {
+            [self stopLogging];
         }
     }
     
