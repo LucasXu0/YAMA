@@ -134,12 +134,13 @@ void serialize_table(void)
     }
 }
 
+static int enumerate_count = 0;
 void enumerator(mach_stack_logging_record_t record, void *context)
 {
     if (!context) return;
         
 #if YAMA_ENABLE_DEBUG_LOG
-    printf("[YAMA] [%s] %016llx %lld %016llx\n", readable_type_flags(record.type_flags), record.stack_identifier, record.argument, record.address);
+    printf("[YAMA] [%d] %s %016llx %lld %016llx\n", enumerate_count++, readable_type_flags(record.type_flags), record.stack_identifier, record.argument, record.address);
 #endif
     yama_fprintf(YAMA_FILE_TYPE_RECORDS, "%08d %016llx %lld %016llx\n", record.type_flags, record.stack_identifier, record.argument, record.address);
     
@@ -212,6 +213,13 @@ int yama_prepare_logging(yama_logging_context_t *context)
     return ret;
 }
 
+typedef struct {
+    uint64_t argument;
+    uint64_t address;
+    uint64_t offset;
+    uint64_t flags;
+} stack_logging_index_event;
+
 extern uint64_t __mach_stack_logging_shared_memory_address;
 int yama_start_logging(void)
 {
@@ -224,6 +232,28 @@ int yama_start_logging(void)
     ret = __mach_stack_logging_start_reading(task, __mach_stack_logging_shared_memory_address, &lite_mode);
     checkRet(ret);
     table = __mach_stack_logging_copy_uniquing_table(task);
+
+    // 打表测试新的结构体
+    uint8_t *sma = (uint8_t *)__mach_stack_logging_shared_memory_address;
+    int i = 0;
+    for (; i < 20000; i++) {
+        struct backtrace_uniquing_table *but = (struct backtrace_uniquing_table *)sma;
+        // printf("[%d] numPages = %llu, numNodes = %llu, tableSize = %llu\n", i, but->numPages, but->numNodes, but->tableSize);
+        if (table->numPages == but->numPages && table->numNodes == but->numNodes && table->tableSize == but->tableSize) {
+            printf("Hit the target(%d)!\n", i);
+            break;
+        }
+        sma++;
+    }
+
+    // 往后遍历
+    sma = (uint8_t *)__mach_stack_logging_shared_memory_address;
+    while (i >= 0) {
+        i -= sizeof(stack_logging_index_event);
+        stack_logging_index_event *slie = (stack_logging_index_event *)(sma + i);
+        printf("[YAMA] slie %s %016llx %lld %016llx\n", readable_type_flags(slie->flags), slie->offset, slie->argument, STACK_LOGGING_DISGUISE(slie->address));
+    }
+
     if (!table) return YAMA_INIT_TABLE_ERROR;
     ret = __mach_stack_logging_enumerate_records(task, 0, enumerator, (void *)table);
     checkRet(ret);

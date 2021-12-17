@@ -153,7 +153,26 @@ extern uint64_t __mach_stack_logging_stackid_for_vm_region(task_t task, mach_vm_
 	/* given the address of a vm region, lookup it's stackid */
 
 
-struct backtrace_uniquing_table;
+// struct backtrace_uniquing_table;
+
+#pragma pack(push,4)
+struct backtrace_uniquing_table {
+    uint64_t                            numPages; // number of pages of the table
+    uint64_t                            numNodes;
+    uint64_t                            tableSize;
+    uint64_t                            untouchableNodes;
+    mach_vm_address_t                    table_address;
+    int32_t                                max_collide;
+    // 'table_address' is just an always 64-bit version of the pointer-sized 'table' field to remotely read;
+    // it's important that the offset of 'table_address' in the struct does not change between 32 and 64-bit.
+#if BACKTRACE_UNIQUING_DEBUG
+    uint64_t nodesFull;
+    uint64_t backtracesContained;
+#endif
+    mach_vm_address_t                    *table; // allocated using vm_allocate()
+};
+#pragma pack(pop)
+
 
 extern kern_return_t
 __mach_stack_logging_uniquing_table_read_stack(struct backtrace_uniquing_table *uniquing_table,

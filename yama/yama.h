@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#define YAMA_ENABLE_DEBUG_LOG 0
+#define YAMA_ENABLE_DEBUG_LOG 1
 
 #define YAMA_SUCCESS                    0
 #define YAMA_LOGGING_CONTEXT_IS_NULL    10001
