@@ -43,6 +43,16 @@ static yama_logging_context_t *logging_context = {};
 static FILE **yama_files;
 static struct backtrace_uniquing_table *table;
 
+static void yama_log(const char *format, ...)
+{
+#if YAMA_ENABLE_DEBUG_LOG
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+#endif
+}
+
 const char *readable_type_flags(uint32_t type_flags)
 {
     if (type_flags == stack_logging_type_alloc) {
@@ -241,6 +251,23 @@ void yama_stop_logging(void)
         table = NULL;
     }
     uninitialize_yama_filse();
+}
+
+void yama_snapshot_enumerator(mach_stack_logging_record_t record, void *context)
+{
+    if (record.type_flags != stack_logging_type_alloc && record.type_flags != stack_logging_type_vm_allocate) return;
+    uint64_t *memory = (uint64_t *)context;
+    *memory += record.argument;
+}
+
+void yama_snapshot(void)
+{    
+    task_t task = current_task();
+    kern_return_t ret = KERN_SUCCESS;
+    uint64_t memory = 0;
+    ret = __mach_stack_logging_enumerate_records(task, 0, yama_snapshot_enumerator, &memory);
+    
+    yama_log("[YAMA] snapshot memory = %fMB\n", memory / 1024.0 / 1024.0);
 }
 
 #pragma GCC diagnostic pop

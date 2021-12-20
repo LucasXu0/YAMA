@@ -15,7 +15,7 @@
 extern "C" {
 #endif
 
-#define YAMA_ENABLE_DEBUG_LOG 0
+#define YAMA_ENABLE_DEBUG_LOG 1
 
 #define YAMA_SUCCESS                    0
 #define YAMA_LOGGING_CONTEXT_IS_NULL    10001
@@ -43,6 +43,7 @@ extern int yama_initialize(void);
 extern int yama_prepare_logging(yama_logging_context_t *context);
 extern int yama_start_logging(void);
 extern void yama_stop_logging(void);
+extern void yama_snapshot(void);
 
 #ifdef __cplusplus
 }

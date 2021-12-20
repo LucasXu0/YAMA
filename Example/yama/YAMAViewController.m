@@ -31,6 +31,7 @@
     
     [self.dataSource[1] addObject:@"start slow logging"];
     [self.dataSource[1] addObject:@"start fast logging"];
+    [self.dataSource[1] addObject:@"snapshot"];
     
     self.tableView = [[UITableView alloc] initWithFrame:self.view.frame style:UITableViewStyleGrouped];
     [self.view addSubview:self.tableView];
@@ -128,6 +129,8 @@
             [self startSlowLogging];
         } else if (row == 1) {
             [self startFastLogging];
+        } else if (row == 2) {
+            yama_snapshot();
         }
     }
     
