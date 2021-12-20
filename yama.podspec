@@ -8,7 +8,7 @@
 
 Pod::Spec.new do |s|
   s.name             = 'yama'
-  s.version          = '0.0.1'
+  s.version          = '0.0.2'
   s.summary          = 'A offline and advanced memory analysis tool based on MallocStackLogging.'
 
 # This description is used to generate tags and improve search results.
