@@ -10,6 +10,7 @@
 extern "C" {
 #endif
 #include "stack_logging.h"
+#include "radix_tree/radix_tree.h"
 #ifdef __cplusplus
 }
 #endif
@@ -22,6 +23,7 @@ extern "C" {
 #include <mach/task.h>
 #include <mach-o/dyld.h>
 #include <cstdlib>
+#include <dispatch/dispatch.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
@@ -253,15 +255,45 @@ void yama_stop_logging(void)
     uninitialize_yama_filse();
 }
 
+
+#define trunc_page(x)   ((x) & (~(vm_page_size - 1)))
+#define round_page(x)   trunc_page((x) + (vm_page_size - 1))
+
+static struct radix_tree *memory_table;
+
 void yama_snapshot_enumerator(mach_stack_logging_record_t record, void *context)
 {
-    if (record.type_flags != stack_logging_type_alloc && record.type_flags != stack_logging_type_vm_allocate) return;
     uint64_t *memory = (uint64_t *)context;
-    *memory += record.argument;
+    mach_vm_address_t address = record.address;
+    uint64_t size = record.argument;
+
+    if (record.type_flags == stack_logging_type_alloc || record.type_flags == stack_logging_type_vm_allocate) {
+        if (size == 0) return;
+        *memory += size;
+        radix_tree_insert(&memory_table,
+                          trunc_page(address),
+                          round_page(address + size) - trunc_page(address),
+                          size);
+    } else if (record.type_flags == stack_logging_type_dealloc || record.type_flags == stack_logging_type_vm_deallocate) {
+        uint64_t size = radix_tree_lookup(memory_table, record.address);
+        if (size != -1) {
+            *memory -= size;
+            radix_tree_delete(&memory_table,
+                              trunc_page(record.address),
+                              round_page(address + size) - trunc_page(address));
+        } else {
+            yama_log("异常记录\n");
+        }
+    }
 }
 
 void yama_snapshot(void)
-{    
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        memory_table = radix_tree_create();
+    });
+
     task_t task = current_task();
     kern_return_t ret = KERN_SUCCESS;
     uint64_t memory = 0;
